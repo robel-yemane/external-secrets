@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -28,23 +28,27 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/go-autorest/autorest/azure"
+	corev1 "k8s.io/api/core/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
 	kcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcfg "sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/yaml"
 
 	"github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	genv1alpha1 "github.com/external-secrets/external-secrets/apis/generators/v1alpha1"
 	smmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 	"github.com/external-secrets/external-secrets/pkg/provider/azure/keyvault"
-	corev1 "k8s.io/api/core/v1"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Generator struct{}
+type Generator struct {
+	clientSecretCreds clientSecretCredentialFunc
+}
+
+type clientSecretCredentialFunc func(tenantID string, clientID string, clientSecret string, options *azidentity.ClientSecretCredentialOptions) (TokenGetter, error)
 
 type TokenGetter interface {
 	GetToken(ctx context.Context, opts policy.TokenRequestOptions) (*azcore.AccessToken, error)
@@ -67,14 +71,6 @@ const (
 // * refresh tokens can are scoped to whatever policy is attached to the identity that creates the acr refresh token
 // details can be found here: https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#overview
 func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, crClient client.Client, namespace string) (map[string][]byte, error) {
-	if jsonSpec == nil {
-		return nil, fmt.Errorf(errNoSpec)
-	}
-	res, err := parseSpec(jsonSpec.Raw)
-	if err != nil {
-		return nil, fmt.Errorf(errParseSpec, err)
-	}
-
 	cfg, err := ctrlcfg.GetConfig()
 	if err != nil {
 		return nil, err
@@ -83,10 +79,39 @@ func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, 
 	if err != nil {
 		return nil, err
 	}
+	g.clientSecretCreds = func(tenantID, clientID, clientSecret string, options *azidentity.ClientSecretCredentialOptions) (TokenGetter, error) {
+		return azidentity.NewClientSecretCredential(clientID, clientID, clientSecret, options)
+	}
+
+	return g.generate(
+		ctx,
+		jsonSpec,
+		crClient,
+		namespace,
+		kubeClient,
+		fetchACRAccessToken,
+		fetchACRRefreshToken)
+}
+
+func (g *Generator) generate(
+	ctx context.Context,
+	jsonSpec *apiextensions.JSON,
+	crClient client.Client,
+	namespace string,
+	kubeClient kubernetes.Interface,
+	fetchAccessToken accessTokenFetcher,
+	fetchRefreshToken refreshTokenFetcher) (map[string][]byte, error) {
+	if jsonSpec == nil {
+		return nil, fmt.Errorf(errNoSpec)
+	}
+	res, err := parseSpec(jsonSpec.Raw)
+	if err != nil {
+		return nil, fmt.Errorf(errParseSpec, err)
+	}
 	var accessToken string
 	// pick authentication strategy to create an AAD access token
 	if res.Spec.Auth.ServicePrincipal != nil {
-		accessToken, err = accessTokenForServicePrincipal(
+		accessToken, err = g.accessTokenForServicePrincipal(
 			ctx,
 			crClient,
 			namespace,
@@ -111,17 +136,19 @@ func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, 
 			res.Spec.Auth.WorkloadIdentity.ServiceAccountRef,
 			namespace,
 		)
+	} else {
+		return nil, fmt.Errorf("unexpeted configuration")
 	}
 	if err != nil {
 		return nil, err
 	}
 	var acrToken string
-	acrToken, err = fetchACRRefreshToken(accessToken, res.Spec.TenantID, res.Spec.ACRRegistry)
+	acrToken, err = fetchRefreshToken(accessToken, res.Spec.TenantID, res.Spec.ACRRegistry)
 	if err != nil {
 		return nil, err
 	}
 	if res.Spec.Scope != "" {
-		acrToken, err = fetchACRAccessToken(acrToken, res.Spec.TenantID, res.Spec.ACRRegistry, res.Spec.Scope)
+		acrToken, err = fetchAccessToken(acrToken, res.Spec.TenantID, res.Spec.ACRRegistry, res.Spec.Scope)
 		if err != nil {
 			return nil, err
 		}
@@ -132,6 +159,8 @@ func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, 
 		"password": []byte(acrToken),
 	}, nil
 }
+
+type accessTokenFetcher func(acrRefreshToken, tenantID, registryURL, scope string) (string, error)
 
 func fetchACRAccessToken(acrRefreshToken, tenantID, registryURL, scope string) (string, error) {
 	formData := url.Values{
@@ -144,10 +173,11 @@ func fetchACRAccessToken(acrRefreshToken, tenantID, registryURL, scope string) (
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code: %d", res.StatusCode)
 	}
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
 	}
@@ -163,6 +193,8 @@ func fetchACRAccessToken(acrRefreshToken, tenantID, registryURL, scope string) (
 	return accessToken, nil
 }
 
+type refreshTokenFetcher func(aadAccessToken, tenantID, registryURL string) (string, error)
+
 func fetchACRRefreshToken(aadAccessToken, tenantID, registryURL string) (string, error) {
 	// https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#overview
 	// https://docs.microsoft.com/en-us/azure/container-registry/container-registry-authentication?tabs=azure-cli
@@ -176,10 +208,11 @@ func fetchACRRefreshToken(aadAccessToken, tenantID, registryURL string) (string,
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code %d, expected %d", res.StatusCode, http.StatusOK)
 	}
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
 	}
@@ -272,7 +305,7 @@ func accessTokenForManagedIdentity(ctx context.Context, envType v1beta1.AzureEnv
 	return accessToken.Token, nil
 }
 
-func accessTokenForServicePrincipal(ctx context.Context, crClient client.Client, namespace string, envType v1beta1.AzureEnvironmentType, tenantID string, idRef, secretRef smmeta.SecretKeySelector) (string, error) {
+func (g *Generator) accessTokenForServicePrincipal(ctx context.Context, crClient client.Client, namespace string, envType v1beta1.AzureEnvironmentType, tenantID string, idRef, secretRef smmeta.SecretKeySelector) (string, error) {
 	cid, err := secretKeyRef(ctx, crClient, namespace, idRef)
 	if err != nil {
 		return "", err
@@ -282,7 +315,7 @@ func accessTokenForServicePrincipal(ctx context.Context, crClient client.Client,
 		return "", err
 	}
 	aadEndpoint := keyvault.AadEndpointForType(envType)
-	creds, err := azidentity.NewClientSecretCredential(
+	creds, err := g.clientSecretCreds(
 		tenantID,
 		cid,
 		csec,
@@ -330,13 +363,15 @@ func audienceForType(t v1beta1.AzureEnvironmentType) string {
 		return azure.GermanCloud.TokenAudience + suffix
 	case v1beta1.AzureEnvironmentUSGovernmentCloud:
 		return azure.USGovernmentCloud.TokenAudience + suffix
+	case v1beta1.AzureEnvironmentPublicCloud, "":
+		return azure.PublicCloud.TokenAudience + suffix
 	}
 	return azure.PublicCloud.TokenAudience + suffix
 }
 
 func parseSpec(data []byte) (*genv1alpha1.ACRAccessToken, error) {
 	var spec genv1alpha1.ACRAccessToken
-	err := json.Unmarshal(data, &spec)
+	err := yaml.Unmarshal(data, &spec)
 	return &spec, err
 }
 

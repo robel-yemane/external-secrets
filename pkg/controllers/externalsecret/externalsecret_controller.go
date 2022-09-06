@@ -28,15 +28,14 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -44,11 +43,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	genv1alpha1 "github.com/external-secrets/external-secrets/apis/generators/v1alpha1"
 	"github.com/external-secrets/external-secrets/pkg/controllers/secretstore"
-
 	// Loading registered generators.
 	_ "github.com/external-secrets/external-secrets/pkg/generator/register"
 	// Loading registered providers.
@@ -198,7 +195,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		Data:      make(map[string][]byte),
 	}
 
-	dataMap, err := r.getProviderSecretData(ctx, &externalSecret, r.Client)
+	dataMap, err := r.getProviderSecretData(ctx, &externalSecret)
 	if err != nil {
 		log.Error(err, errGetSecretData)
 		r.recorder.Event(&externalSecret, v1.EventTypeWarning, esv1beta1.ReasonUpdateFailed, err.Error())
@@ -487,7 +484,7 @@ func (r *Reconciler) getStore(ctx context.Context, storeRef *esv1beta1.SecretSto
 }
 
 // getProviderSecretData returns the provider's secret data with the provided ExternalSecret.
-func (r *Reconciler) getProviderSecretData(ctx context.Context, externalSecret *esv1beta1.ExternalSecret, crClient client.Client) (map[string][]byte, error) {
+func (r *Reconciler) getProviderSecretData(ctx context.Context, externalSecret *esv1beta1.ExternalSecret) (map[string][]byte, error) {
 	providerData := make(map[string][]byte)
 	for i, remoteRef := range externalSecret.Spec.DataFrom {
 		var secretMap map[string][]byte
@@ -516,12 +513,7 @@ func (r *Reconciler) getProviderSecretData(ctx context.Context, externalSecret *
 	}
 
 	for i, secretRef := range externalSecret.Spec.Data {
-		client, err := r.getClientOrDefault(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, secretRef.SourceRef)
-		if err != nil {
-			return nil, err
-		}
-		defer client.Close(ctx)
-		secretData, err := client.GetSecret(ctx, secretRef.RemoteRef)
+		err := r.handleSecretData(ctx, i, *externalSecret, secretRef, providerData)
 		if errors.Is(err, esv1beta1.NoSecretErr) && externalSecret.Spec.Target.DeletionPolicy != esv1beta1.DeletionPolicyRetain {
 			r.recorder.Event(externalSecret, v1.EventTypeNormal, esv1beta1.ReasonDeleted, fmt.Sprintf("secret does not exist at provider using .data[%d] key=%s", i, secretRef.RemoteRef.Key))
 			continue
@@ -529,14 +521,27 @@ func (r *Reconciler) getProviderSecretData(ctx context.Context, externalSecret *
 		if err != nil {
 			return nil, err
 		}
-		secretData, err = utils.Decode(secretRef.RemoteRef.DecodingStrategy, secretData)
-		if err != nil {
-			return nil, fmt.Errorf(errDecode, "spec.data", i, err)
-		}
-		providerData[secretRef.SecretKey] = secretData
 	}
 
 	return providerData, nil
+}
+
+func (r *Reconciler) handleSecretData(ctx context.Context, i int, externalSecret esv1beta1.ExternalSecret, secretRef esv1beta1.ExternalSecretData, providerData map[string][]byte) error {
+	client, err := r.getClientOrDefault(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, secretRef.SourceRef)
+	if err != nil {
+		return err
+	}
+	defer client.Close(ctx)
+	secretData, err := client.GetSecret(ctx, secretRef.RemoteRef)
+	if err != nil {
+		return err
+	}
+	secretData, err = utils.Decode(secretRef.RemoteRef.DecodingStrategy, secretData)
+	if err != nil {
+		return fmt.Errorf(errDecode, "spec.data", i, err)
+	}
+	providerData[secretRef.SecretKey] = secretData
+	return nil
 }
 
 func (r *Reconciler) handleGenerateSecrets(ctx context.Context, namespace string, remoteRef esv1beta1.ExternalSecretDataFromRemoteRef, i int) (map[string][]byte, error) {
@@ -564,7 +569,7 @@ func (r *Reconciler) handleGenerateSecrets(ctx context.Context, namespace string
 
 // getGeneratorDefinition returns the generator JSON for a given sourceRef
 // when a generator is defined inline it returns sourceRef.Generator straight away
-// when it uses a generatorRef it fetches the resource and returns the JSON
+// when it uses a generatorRef it fetches the resource and returns the JSON.
 func (r *Reconciler) getGeneratorDefinition(ctx context.Context, namespace string, sourceRef *esv1beta1.SourceRef) (*apiextensions.JSON, error) {
 	if sourceRef.Generator != nil {
 		return sourceRef.Generator, nil
@@ -673,8 +678,8 @@ func (r *Reconciler) handleFindAllSecrets(ctx context.Context, externalSecret *e
 
 // getClientOrDefault returns a provider client from the given storeRef or sourceRef.secretStoreRef
 // while sourceRef.SecretStoreRef takes precedence over storeRef.
-// it returns nil if both storeRef and sourceRef.secretStoreRef is empty
-func (r *Reconciler) getClientOrDefault(ctx context.Context, storeRef esv1beta1.SecretStoreRef, namespace string, sourceRef *esv1beta1.SourceRef) (v1beta1.SecretsClient, error) {
+// it returns nil if both storeRef and sourceRef.secretStoreRef is empty.
+func (r *Reconciler) getClientOrDefault(ctx context.Context, storeRef esv1beta1.SecretStoreRef, namespace string, sourceRef *esv1beta1.SourceRef) (esv1beta1.SecretsClient, error) {
 	if sourceRef != nil && sourceRef.SecretStoreRef != nil {
 		storeRef = *sourceRef.SecretStoreRef
 	}
@@ -690,7 +695,8 @@ func (r *Reconciler) getClientOrDefault(ctx context.Context, storeRef esv1beta1.
 	}
 
 	if r.EnableFloodGate {
-		if err = assertStoreIsUsable(store); err != nil {
+		err := assertStoreIsUsable(store)
+		if err != nil {
 			return nil, err
 		}
 	}

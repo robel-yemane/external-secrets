@@ -43,6 +43,7 @@ nav:
     - Stability and Support: introduction/stability-support.md
     - Deprecation Policy: introduction/deprecation-policy.md
   - API:
+    - Components: api/components.md
     - Core Resources:
       - ExternalSecret: api/externalsecret.md
       - SecretStore: api/secretstore.md
@@ -53,9 +54,12 @@ nav:
       - Azure Container Registry: api/generator/acr.md
       - AWS Elastic Container Registry: api/generator/ecr.md
       - Google Container Registry: api/generator/gcr.md
+      - Password: api/generator/password.md
       - Fake: api/generator/fake.md
     - Reference Docs:
       - API specification: api/spec.md
+      - Controller Options: api/controller-options.md
+      - Metrics: api/metrics.md
   - Guides:
     - Introduction: guides/introduction.md
     - Advanced Templating:
@@ -69,7 +73,6 @@ nav:
     - Decoding Strategies: guides/decoding-strategy.md
     - Getting Multiple Secrets: guides/getallsecrets.md
     - Multi Tenancy: guides/multi-tenancy.md
-    - Metrics: guides/metrics.md
     - Rewriting Keys: guides/datafrom-rewrite.md
     - Upgrading to v1beta1: guides/v1beta1.md
     - Using Latest Image: guides/using-latest-image.md

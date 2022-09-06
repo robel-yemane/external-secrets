@@ -15,9 +15,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	smmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ACRAccessTokenSpec
@@ -82,7 +83,7 @@ type AzureACRWorkloadIdentityAuth struct {
 }
 
 // Configuration used to authenticate with Azure using static
-// credentials stored in a Kind=Secret
+// credentials stored in a Kind=Secret.
 type AzureACRServicePrincipalAuthSecretRef struct {
 	// The Azure clientId of the service principle used for authentication.
 	ClientID smmeta.SecretKeySelector `json:"clientId,omitempty"`

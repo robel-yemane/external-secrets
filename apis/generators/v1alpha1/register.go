@@ -60,6 +60,14 @@ var (
 	ACRAccessTokenGroupVersionKind = SchemeGroupVersion.WithKind(ACRAccessTokenKind)
 )
 
+// Password type metadata.
+var (
+	PasswordKind             = reflect.TypeOf(Password{}).Name()
+	PasswordGroupKind        = schema.GroupKind{Group: Group, Kind: PasswordKind}.String()
+	PasswordKindAPIVersion   = PasswordKind + "." + SchemeGroupVersion.String()
+	PasswordGroupVersionKind = SchemeGroupVersion.WithKind(PasswordKind)
+)
+
 // Fake type metadata.
 var (
 	FakeKind             = reflect.TypeOf(Fake{}).Name()

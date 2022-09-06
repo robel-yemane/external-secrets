@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// FakeSpec
+// FakeSpec contains the static data.
 type FakeSpec struct {
 	Data map[string]string `json:"data,omitempty"`
 }

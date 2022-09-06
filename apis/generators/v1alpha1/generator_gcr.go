@@ -15,11 +15,12 @@ limitations under the License.
 package v1alpha1
 
 import (
-	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 )
 
-// GCRAccessTokenSpec
+// GCRAccessTokenSpec contains the means for authenticating with GCP.
 type GCRAccessTokenSpec struct {
 	Auth      esv1beta1.GCPSMAuth `json:"auth"`
 	ProjectID string              `json:"projectID"`

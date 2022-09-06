@@ -1,0 +1,33 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: fake
+spec:
+  provider:
+    fake:
+      data:
+      - key: "/foo/baz"
+        valueMap:
+          kube-external-secrets/example-dev/example/main: example
+          kube-external-secrets/example-dev/other/example: thing
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: example
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: fake
+    kind: ClusterSecretStore
+  target:
+    name: secret-to-be-created
+  dataFrom:
+  - extract:
+      key: /foo/baz
+      conversionStrategy: Default
+      decodingStrategy: None
+    rewrite:
+    - regexp:
+        source: kube-external-secrets_example-dev_example_(.*)
+        target: $1

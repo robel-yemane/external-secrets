@@ -16,18 +16,20 @@ package ecr
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
 
-	"encoding/base64"
-
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go/service/ecr/ecriface"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
+
 	genv1alpha1 "github.com/external-secrets/external-secrets/apis/generators/v1alpha1"
 	awsauth "github.com/external-secrets/external-secrets/pkg/provider/aws/auth"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/util/json"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Generator struct{}
@@ -40,6 +42,16 @@ const (
 )
 
 func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, kube client.Client, namespace string) (map[string][]byte, error) {
+	return g.generate(ctx, jsonSpec, kube, namespace, ecrFactory)
+}
+
+func (g *Generator) generate(
+	ctx context.Context,
+	jsonSpec *apiextensions.JSON,
+	kube client.Client,
+	namespace string,
+	ecrFunc ecrFactoryFunc,
+) (map[string][]byte, error) {
 	if jsonSpec == nil {
 		return nil, fmt.Errorf(errNoSpec)
 	}
@@ -59,7 +71,7 @@ func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, 
 	if err != nil {
 		return nil, fmt.Errorf(errCreateSess, err)
 	}
-	client := ecr.New(sess)
+	client := ecrFunc(sess)
 	out, err := client.GetAuthorizationToken(&ecr.GetAuthorizationTokenInput{})
 	if err != nil {
 		return nil, fmt.Errorf(errGetToken, err)
@@ -87,9 +99,15 @@ func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, 
 	}, nil
 }
 
+type ecrFactoryFunc func(aws *session.Session) ecriface.ECRAPI
+
+func ecrFactory(aws *session.Session) ecriface.ECRAPI {
+	return ecr.New(aws)
+}
+
 func parseSpec(data []byte) (*genv1alpha1.ECRAuthorizationToken, error) {
 	var spec genv1alpha1.ECRAuthorizationToken
-	err := json.Unmarshal(data, &spec)
+	err := yaml.Unmarshal(data, &spec)
 	return &spec, err
 }
 

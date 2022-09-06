@@ -15,10 +15,11 @@ limitations under the License.
 package register
 
 // packages imported here are registered to the controller schema.
-// nolint:revive
+//nolint:revive
 import (
 	_ "github.com/external-secrets/external-secrets/pkg/generator/acr"
 	_ "github.com/external-secrets/external-secrets/pkg/generator/ecr"
 	_ "github.com/external-secrets/external-secrets/pkg/generator/fake"
 	_ "github.com/external-secrets/external-secrets/pkg/generator/gcr"
+	_ "github.com/external-secrets/external-secrets/pkg/generator/password"
 )

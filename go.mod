@@ -98,6 +98,7 @@ require github.com/1Password/connect-sdk-go v1.5.0
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.13.2
+	github.com/sethvargo/go-password v0.2.0
 	sigs.k8s.io/yaml v1.3.0
 )
 

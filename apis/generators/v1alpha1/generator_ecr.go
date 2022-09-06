@@ -15,8 +15,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 )
 
 // ECRAuthorizationTokenSpec uses the GetAuthorizationToken API to retrieve an

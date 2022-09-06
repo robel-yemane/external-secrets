@@ -19,11 +19,14 @@ import (
 	"fmt"
 	"strconv"
 
+	"golang.org/x/oauth2"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
+
+	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	genv1alpha1 "github.com/external-secrets/external-secrets/apis/generators/v1alpha1"
 	"github.com/external-secrets/external-secrets/pkg/provider/gcp/secretmanager"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/util/json"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Generator struct{}
@@ -37,6 +40,21 @@ const (
 )
 
 func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, kube client.Client, namespace string) (map[string][]byte, error) {
+	return g.generate(
+		ctx,
+		jsonSpec,
+		kube,
+		namespace,
+		secretmanager.NewTokenSource,
+	)
+}
+
+func (g *Generator) generate(
+	ctx context.Context,
+	jsonSpec *apiextensions.JSON,
+	kube client.Client,
+	namespace string,
+	tokenSource tokenSourceFunc) (map[string][]byte, error) {
 	if jsonSpec == nil {
 		return nil, fmt.Errorf(errNoSpec)
 	}
@@ -44,7 +62,7 @@ func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, 
 	if err != nil {
 		return nil, fmt.Errorf(errParseSpec, err)
 	}
-	ts, err := secretmanager.NewTokenSource(ctx, res.Spec.Auth, res.Spec.ProjectID, false, kube, namespace)
+	ts, err := tokenSource(ctx, res.Spec.Auth, res.Spec.ProjectID, false, kube, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +78,11 @@ func (g *Generator) Generate(ctx context.Context, jsonSpec *apiextensions.JSON, 
 	}, nil
 }
 
+type tokenSourceFunc func(ctx context.Context, auth esv1beta1.GCPSMAuth, projectID string, isClusterKind bool, kube client.Client, namespace string) (oauth2.TokenSource, error)
+
 func parseSpec(data []byte) (*genv1alpha1.GCRAccessToken, error) {
 	var spec genv1alpha1.GCRAccessToken
-	err := json.Unmarshal(data, &spec)
+	err := yaml.Unmarshal(data, &spec)
 	return &spec, err
 }
 

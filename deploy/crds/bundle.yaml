@@ -5751,7 +5751,7 @@ spec:
                       description: ServicePrincipal uses Azure Service Principal credentials to authenticate with Azure.
                       properties:
                         secretRef:
-                          description: Configuration used to authenticate with Azure using static credentials stored in a Kind=Secret
+                          description: Configuration used to authenticate with Azure using static credentials stored in a Kind=Secret.
                           properties:
                             clientId:
                               description: The Azure clientId of the service principle used for authentication.
@@ -5989,7 +5989,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: FakeSpec
+              description: FakeSpec contains the static data.
               properties:
                 data:
                   additionalProperties:
@@ -6045,7 +6045,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: GCRAccessTokenSpec
+              description: GCRAccessTokenSpec contains the means for authenticating with GCP.
               properties:
                 auth:
                   properties:
@@ -6101,6 +6101,83 @@ spec:
               required:
                 - auth
                 - projectID
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+  conversion:
+    strategy: Webhook
+    webhook:
+      conversionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+          name: kubernetes
+          namespace: default
+          path: /convert
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.2
+  creationTimestamp: null
+  name: passwords.generators.external-secrets.io
+spec:
+  group: generators.external-secrets.io
+  names:
+    categories:
+      - password
+    kind: Password
+    listKind: PasswordList
+    plural: passwords
+    shortNames:
+      - password
+    singular: password
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: PasswordSpec controls the behavior of the password generator.
+              properties:
+                allowRepeat:
+                  default: false
+                  description: set AllowRepeat to true to allow repeating characters.
+                  type: boolean
+                digits:
+                  description: Digits specifies the number of digits in the generated password. If omitted it defaults to 25% of the length of the password
+                  type: integer
+                length:
+                  default: 24
+                  description: Length of the password to be generated. Defaults to 24
+                  type: integer
+                noUpper:
+                  default: false
+                  description: Set NoUpper to disable uppercase characters
+                  type: boolean
+                symbolCharacters:
+                  description: SymbolCharacters specifies the special characters that should be used in the generated password.
+                  type: string
+                symbols:
+                  description: Symbols specifies the number of symbol characters in the generated password. If omitted it defaults to 25% of the length of the password
+                  type: integer
+              required:
+                - allowRepeat
+                - length
+                - noUpper
               type: object
           type: object
       served: true
