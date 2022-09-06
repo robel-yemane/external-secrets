@@ -123,6 +123,55 @@ func New(ctx context.Context, store esv1beta1.GenericStore, kube client.Client, 
 	return sess, nil
 }
 
+// NewSession creates a new aws session based on the provided store
+// it uses the following authentication mechanisms in order:
+// * service-account token authentication via AssumeRoleWithWebIdentity
+// * static credentials from a Kind=Secret, optionally with doing a AssumeRole.
+// * sdk default provider chain, see: https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+func NewGeneratorSession(ctx context.Context, auth esv1beta1.AWSAuth, role, region string, kube client.Client, namespace string, assumeRoler STSProvider, jwtProvider jwtProviderFactory) (*session.Session, error) {
+	var creds *credentials.Credentials
+	var err error
+
+	// use credentials via service account token
+	jwtAuth := auth.JWTAuth
+	if jwtAuth != nil {
+		creds, err = sessionFromServiceAccount(ctx, auth, region, false, kube, namespace, jwtProvider)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// use credentials from sercretRef
+	secretRef := auth.SecretRef
+	if secretRef != nil {
+		log.V(1).Info("using credentials from secretRef")
+		creds, err = sessionFromSecretRef(ctx, auth, false, kube, namespace)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	config := aws.NewConfig().WithEndpointResolver(ResolveEndpoint())
+	if creds != nil {
+		config.WithCredentials(creds)
+	}
+	if region != "" {
+		config.WithRegion(region)
+	}
+
+	sess, err := getAWSSession(config, false, "", "", "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	if role != "" {
+		stsclient := assumeRoler(sess)
+		sess.Config.WithCredentials(stscreds.NewCredentialsWithClient(stsclient, role))
+	}
+	log.Info("using aws session", "region", *sess.Config.Region, "credentials", creds)
+	return sess, nil
+}
+
 func sessionFromSecretRef(ctx context.Context, auth esv1beta1.AWSAuth, isClusterKind bool, kube client.Client, namespace string) (*credentials.Credentials, error) {
 	ke := client.ObjectKey{
 		Name:      auth.SecretRef.AccessKeyID.Name,
