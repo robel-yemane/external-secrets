@@ -7,7 +7,7 @@ BUILD_ARGS     ?=
 
 export E2E_IMAGE_REGISTRY ?= ghcr.io/external-secrets/external-secrets-e2e
 export GINKGO_LABELS ?= !managed
-export TEST_SUITES ?= provider flux argocd
+export TEST_SUITES ?= provider flux argocd generator
 
 start-kind: ## Start kind cluster
 	kind create cluster \

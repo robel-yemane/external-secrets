@@ -81,4 +81,5 @@ func init() {
 	SchemeBuilder.Register(&GCRAccessToken{}, &GCRAccessTokenList{})
 	SchemeBuilder.Register(&ACRAccessToken{}, &ACRAccessTokenList{})
 	SchemeBuilder.Register(&Fake{}, &FakeList{})
+	SchemeBuilder.Register(&Password{}, &PasswordList{})
 }

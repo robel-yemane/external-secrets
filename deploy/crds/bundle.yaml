@@ -95,13 +95,13 @@ spec:
                                 description: GeneratorRef points to a generator custom resource in
                                 properties:
                                   apiVersion:
+                                    default: generators.external-secrets.io/v1alpha1
                                     type: string
                                   kind:
                                     type: string
                                   name:
                                     type: string
                                 required:
-                                  - apiVersion
                                   - kind
                                   - name
                                 type: object
@@ -209,13 +209,13 @@ spec:
                                 description: GeneratorRef points to a generator custom resource in
                                 properties:
                                   apiVersion:
+                                    default: generators.external-secrets.io/v1alpha1
                                     type: string
                                   kind:
                                     type: string
                                   name:
                                     type: string
                                 required:
-                                  - apiVersion
                                   - kind
                                   - name
                                 type: object
@@ -3075,13 +3075,13 @@ spec:
                             description: GeneratorRef points to a generator custom resource in
                             properties:
                               apiVersion:
+                                default: generators.external-secrets.io/v1alpha1
                                 type: string
                               kind:
                                 type: string
                               name:
                                 type: string
                             required:
-                              - apiVersion
                               - kind
                               - name
                             type: object
@@ -3189,13 +3189,13 @@ spec:
                             description: GeneratorRef points to a generator custom resource in
                             properties:
                               apiVersion:
+                                default: generators.external-secrets.io/v1alpha1
                                 type: string
                               kind:
                                 type: string
                               name:
                                 type: string
                             required:
-                              - apiVersion
                               - kind
                               - name
                             type: object

@@ -321,7 +321,8 @@ type SourceRef struct {
 }
 
 type GeneratorRef struct {
-	APIVersion string `json:"apiVersion"`
+	// +kubebuilder:default="generators.external-secrets.io/v1alpha1"
+	APIVersion string `json:"apiVersion,omitempty"`
 	Kind       string `json:"kind"`
 	Name       string `json:"name"`
 }
