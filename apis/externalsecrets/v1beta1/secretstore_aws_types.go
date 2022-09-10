@@ -36,6 +36,10 @@ type AWSAuthSecretRef struct {
 
 	// The SecretAccessKey is used for authentication
 	SecretAccessKey esmeta.SecretKeySelector `json:"secretAccessKeySecretRef,omitempty"`
+
+	// The SessionToken used for authentication
+	// +Optional
+	SessionToken *esmeta.SecretKeySelector `json:"sessionTokenSecretRef,omitempty"`
 }
 
 // Authenticate against AWS using service account tokens.

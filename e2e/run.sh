@@ -54,6 +54,7 @@ kubectl run --rm \
   --env="GCP_GKE_CLUSTER=${GCP_GKE_CLUSTER:-}" \
   --env="AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}" \
   --env="AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}" \
+  --env="AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}" \
   --env="AWS_SA_NAME=${AWS_SA_NAME:-}" \
   --env="AWS_SA_NAMESPACE=${AWS_SA_NAMESPACE:-}" \
   --env="AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}" \

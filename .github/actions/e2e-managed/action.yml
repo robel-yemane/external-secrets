@@ -1,81 +1,6 @@
 name: "e2e"
 description: "runs our e2e test suite"
 
-inputs:
-  GCP_PROJECT_ID:
-    description: 'GCP Project ID'
-    required: true
-  GCP_SM_SA_JSON:
-    description: 'GCP Secrets Manager Service Account JSON'
-    required: true
-  GCP_GKE_CLUSTER:
-    description: 'GCP GKE cluster name'
-    required: false
-    default: "test-cluster"
-  GCP_GKE_ZONE:
-    description: 'GCP GKE Zone'
-    required: true
-  GCP_GSA_NAME:
-    description: 'GCP Google Service Account Name'
-    required: true
-  GCP_KSA_NAME:
-    description: 'GCP Kubernetes Service Account Name'
-    required: true
-  GCP_SM_SA_GKE_JSON:
-    description: 'GCP Secrets Manager Service Account json'
-    required: true
-
-  AWS_OIDC_ROLE_ARN:
-    description: 'AWS OIDC Role to assume using GitHub Actions OIDC'
-    required: true
-  AWS_SA_NAME:
-    description: 'AWS Kubernetes Service Account Name'
-    required: true
-  AWS_SA_NAMESPACE:
-    description: 'AWS Kubernetes Service Account Namespace'
-    required: true
-  AWS_CLUSTER_NAME:
-    description: 'AWS EKS cluster name'
-    default: "eso-e2e-managed"
-    required: false
-  AWS_REGION:
-    description: 'AWS Region'
-    default: "eu-central-1"
-    required: false
-
-  AZURE_CLIENT_ID:
-    description: 'Azure Client ID'
-    required: true
-  AZURE_CLIENT_SECRET:
-    description: 'Azure Client Secret'
-    required: true
-  TENANT_ID:
-    description: 'Azure Tenant ID'
-    required: true
-  VAULT_URL:
-    description: 'Azure KeyVault URL'
-    required: true
-
-  GITHUB_TOKEN:
-    description: 'Github Access Token'
-    required: true
-  GITHUB_PR_NUMBER:
-    description: 'Number of related pull request'
-    required: true
-  CLOUD_PROVIDER:
-    description: 'cloud provider that should be tested'
-    required: true
-  INFRACOST_API_KEY:
-    description: 'API Key for infracost'
-    required: true
-  GHCR_USERNAME:
-    description: 'Github container registry username'
-    required: true
-  GHCR_TOKEN:
-    description: 'Github container registry token'
-    required: true
-
-
 runs:
   using: composite
   steps:
@@ -84,10 +9,10 @@ runs:
     - uses: actions/github-script@v6
       if: ${{ always() }}
       env:
-        number: ${{ inputs.GITHUB_PR_NUMBER }}
-        provider: ${{ inputs.CLOUD_PROVIDER }}
+        number: ${{ env.GITHUB_PR_NUMBER }}
+        provider: ${{ env.CLOUD_PROVIDER }}
       with:
-        github-token: ${{ inputs.GITHUB_TOKEN }}
+        github-token: ${{ env.GITHUB_TOKEN }}
         script: |
           const { data: pull } = await github.rest.pulls.get({
             ...context.repo,
@@ -119,35 +44,8 @@ runs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        role-to-assume: ${{ inputs.AWS_OIDC_ROLE_ARN }}
-        aws-region: ${{ inputs.AWS_REGION }}
-
-
-    - name: "export inputs to env"
-      shell: bash
-      run: |
-        echo "GCP_GKE_ZONE=${{ inputs.GCP_GKE_ZONE }}" >> $GITHUB_ENV
-        echo "GCP_GSA_NAME=${{ inputs.GCP_GSA_NAME }}" >> $GITHUB_ENV
-        echo "GCP_KSA_NAME=${{ inputs.GCP_KSA_NAME }}" >> $GITHUB_ENV
-        echo "GCP_PROJECT_ID=${{ inputs.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-        echo "GCP_GKE_CLUSTER=${{ inputs.GCP_GKE_CLUSTER }}" >> $GITHUB_ENV
-        echo "TF_VAR_GCP_PROJECT_ID=${{ inputs.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-        echo "TF_VAR_GCP_GSA_NAME=${{ inputs.GCP_GSA_NAME }}" >> $GITHUB_ENV
-        echo "TF_VAR_GCP_KSA_NAME=${{ inputs.GCP_KSA_NAME }}" >> $GITHUB_ENV
-
-        echo "AWS_REGION=${{ inputs.AWS_REGION }}" >> $GITHUB_ENV
-        echo "AWS_CLUSTER_NAME=${{ inputs.AWS_CLUSTER_NAME }}" >> $GITHUB_ENV
-        echo "AWS_SA_NAMESPACE=${{ inputs.AWS_SA_NAMESPACE }}" >> $GITHUB_ENV
-        echo "AWS_SA_NAME=${{ inputs.AWS_SA_NAME }}" >> $GITHUB_ENV
-        echo "TF_VAR_AWS_REGION=${{ inputs.AWS_REGION }}" >> $GITHUB_ENV
-        echo "TF_VAR_AWS_SA_NAME=${{ inputs.AWS_SA_NAME }}" >> $GITHUB_ENV
-        echo "TF_VAR_AWS_SA_NAMESPACE=${{ inputs.AWS_SA_NAMESPACE }}" >> $GITHUB_ENV
-        echo "TF_VAR_AWS_CLUSTER_NAME=${{ inputs.AWS_CLUSTER_NAME }}" >> $GITHUB_ENV
-
-        echo "AZURE_CLIENT_ID=${{ inputs.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
-        echo "AZURE_CLIENT_SECRET=${{ inputs.AZURE_CLIENT_SECRET }}" >> $GITHUB_ENV
-        echo "TENANT_ID=${{ inputs.TENANT_ID }}" >> $GITHUB_ENV
-        echo "VAULT_URL=${{ inputs.VAULT_URL }}" >> $GITHUB_ENV
+        role-to-assume: ${{ env.AWS_OIDC_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Setup Go
       uses: actions/setup-go@v3
@@ -186,9 +84,9 @@ runs:
 
     - name: Setup TF Gcloud Provider
       shell: bash
-      if: inputs.CLOUD_PROVIDER == 'gcp'
+      if: env.CLOUD_PROVIDER == 'gcp'
       env:
-        GCP_SM_SA_GKE_JSON: ${{ inputs.GCP_SM_SA_GKE_JSON }}
+        GCP_SM_SA_GKE_JSON: ${{ env.GCP_SM_SA_GKE_JSON }}
       run: |-
         mkdir -p terraform/gcp/secrets
         echo ${GCP_SM_SA_GKE_JSON} > terraform/gcp/secrets/gcloud-service-account-key.json
@@ -196,19 +94,19 @@ runs:
     - name: Show TF
       shell: bash
       run: |-
-        PROVIDER=${{inputs.CLOUD_PROVIDER}}
+        PROVIDER=${{env.CLOUD_PROVIDER}}
         make tf.show.${PROVIDER}
 
     - name: Setup Infracost
       uses: infracost/actions/setup@v2
       with:
-        api-key: ${{ inputs.INFRACOST_API_KEY }}
+        api-key: ${{ env.INFRACOST_API_KEY }}
 
     - name: Generate Infracost JSON for provider
       shell: bash
       run: |
         infracost breakdown \
-          --path terraform/${{inputs.CLOUD_PROVIDER}}/plan.json \
+          --path terraform/${{env.CLOUD_PROVIDER}}/plan.json \
           --format json \
           --out-file /tmp/infracost.json
 
@@ -217,8 +115,8 @@ runs:
       run: |
         infracost comment github --path=/tmp/infracost.json \
           --repo=$GITHUB_REPOSITORY \
-          --github-token=${{ inputs.GITHUB_TOKEN }} \
-          --pull-request=${{ inputs.GITHUB_PR_NUMBER }} \
+          --github-token=${{ env.GITHUB_TOKEN }} \
+          --pull-request=${{ env.GITHUB_PR_NUMBER }} \
           --behavior=update
 
     - name: Apply TF
@@ -226,43 +124,43 @@ runs:
       env:
         TF_VAR_OIDC_TOKEN: "${{steps.fetch-token.outputs.result}}"
       run: |-
-        PROVIDER=${{inputs.CLOUD_PROVIDER}}
+        PROVIDER=${{env.CLOUD_PROVIDER}}
         make tf.apply.${PROVIDER}
 
     - name: Setup gcloud CLI
-      if: inputs.CLOUD_PROVIDER == 'gcp'
+      if: env.CLOUD_PROVIDER == 'gcp'
       uses: google-github-actions/setup-gcloud@v0
       with:
-        service_account_key: ${{ inputs.GCP_SM_SA_GKE_JSON }}
-        project_id: ${{ inputs.GCP_PROJECT_ID }}
+        service_account_key: ${{ env.GCP_SM_SA_GKE_JSON }}
+        project_id: ${{ env.GCP_PROJECT_ID }}
 
     - name: Get the GKE credentials
       shell: bash
-      if: inputs.CLOUD_PROVIDER == 'gcp'
+      if: env.CLOUD_PROVIDER == 'gcp'
       run: |-
         gcloud container clusters get-credentials "$GCP_GKE_CLUSTER" --zone "$GCP_GKE_ZONE" --project "$GCP_PROJECT_ID"
 
     - name: Get the AWS credentials
       shell: bash
-      if: inputs.CLOUD_PROVIDER == 'aws'
+      if: env.CLOUD_PROVIDER == 'aws'
       run: |-
         aws --region $AWS_REGION eks update-kubeconfig --name $AWS_CLUSTER_NAME
 
     - name: Login to Docker
       uses: docker/login-action@v2
-      if: inputs.GHCR_USERNAME != ''
+      if: env.GHCR_USERNAME != ''
       with:
         registry: ghcr.io
-        username: ${{ inputs.GHCR_USERNAME }}
-        password: ${{ inputs.GHCR_TOKEN }}
+        username: ${{ env.GHCR_USERNAME }}
+        password: ${{ env.GHCR_TOKEN }}
 
     - name: Run managed e2e Tests
       shell: bash
       env:
-        GCP_SM_SA_JSON: ${{ inputs.GCP_SM_SA_JSON }}
+        GCP_SM_SA_JSON: ${{ env.GCP_SM_SA_JSON }}
       run: |
         export PATH=$PATH:$(go env GOPATH)/bin
-        PROVIDER=${{inputs.CLOUD_PROVIDER}}
+        PROVIDER=${{env.CLOUD_PROVIDER}}
         go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.6
         make test.e2e.managed GINKGO_LABELS="${PROVIDER}" TEST_SUITES="provider"
 
@@ -270,20 +168,20 @@ runs:
       shell: bash
       if: always()
       run: |-
-        PROVIDER=${{inputs.CLOUD_PROVIDER}}
+        PROVIDER=${{env.CLOUD_PROVIDER}}
         make tf.destroy.${PROVIDER}
 
     # set status=completed
     - uses: actions/github-script@v6
       if: ${{ always() }}
       env:
-        number: ${{ inputs.GITHUB_PR_NUMBER }}
-        provider: ${{ inputs.CLOUD_PROVIDER }}
+        number: ${{ env.GITHUB_PR_NUMBER }}
+        provider: ${{ env.CLOUD_PROVIDER }}
         job: ${{ github.job }}
         # Conveniently, job.status maps to https://developer.github.com/v3/checks/runs/#update-a-check-run
         conclusion: ${{ job.status }}
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ env.GITHUB_TOKEN }}
         script: |
           const { data: pull } = await github.rest.pulls.get({
             ...context.repo,

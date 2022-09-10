@@ -66,6 +66,7 @@ const (
 	errInvalidClusterStoreMissingSAKNamespace  = "invalid ClusterSecretStore: missing AWS SecretAccessKey Namespace"
 	errFetchAKIDSecret                         = "could not fetch accessKeyID secret: %w"
 	errFetchSAKSecret                          = "could not fetch SecretAccessKey secret: %w"
+	errFetchSTSecret                           = "could not fetch SessionToken secret: %w"
 	errMissingSAK                              = "missing SecretAccessKey"
 	errMissingAKID                             = "missing AccessKeyID"
 )
@@ -214,7 +215,28 @@ func sessionFromSecretRef(ctx context.Context, auth esv1beta1.AWSAuth, isCluster
 		return nil, fmt.Errorf(errMissingAKID)
 	}
 
-	return credentials.NewStaticCredentials(aks, sak, ""), err
+	var sessionToken string
+	if auth.SecretRef.SessionToken != nil {
+		ke = client.ObjectKey{
+			Name:      auth.SecretRef.SessionToken.Name,
+			Namespace: namespace, // default to ExternalSecret namespace
+		}
+		// only ClusterStore is allowed to set namespace (and then it's required)
+		if isClusterKind {
+			if auth.SecretRef.SessionToken.Namespace == nil {
+				return nil, fmt.Errorf(errInvalidClusterStoreMissingSAKNamespace)
+			}
+			ke.Namespace = *auth.SecretRef.SessionToken.Namespace
+		}
+		stSecret := v1.Secret{}
+		err = kube.Get(ctx, ke, &stSecret)
+		if err != nil {
+			return nil, fmt.Errorf(errFetchSTSecret, err)
+		}
+		sessionToken = string(stSecret.Data[auth.SecretRef.SessionToken.Key])
+	}
+
+	return credentials.NewStaticCredentials(aks, sak, sessionToken), err
 }
 
 func sessionFromServiceAccount(ctx context.Context, auth esv1beta1.AWSAuth, region string, isClusterKind bool, kube client.Client, namespace string, jwtProvider jwtProviderFactory) (*credentials.Credentials, error) {

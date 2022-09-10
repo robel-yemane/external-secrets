@@ -1,43 +1,6 @@
 name: "e2e"
 description: "runs our e2e test suite"
 
-inputs:
-  # GCP_PROJECT_ID:
-  #   description: 'GCP Project id'
-  #   required: true
-  # GCP_SM_SA_JSON:
-  #   description: 'GCP Secrets Manager Service Account JSON'
-  #   required: true
-  # GCP_GKE_ZONE:
-  #   description: 'GCP GKE Zone'
-  #   required: true
-  # GCP_GSA_NAME:
-  #   description: 'GCP Google Service Account Name'
-  #   required: true
-  # GCP_KSA_NAME:
-  #   description: 'GCP Kubernetes Service Account Name'
-  #   required: true
-
-  AWS_OIDC_ROLE_ARN:
-    description: 'AWS OIDC Role to assume using GitHub Actions OIDC'
-    required: true
-  AWS_REGION:
-    description: "AWS region to work with"
-    default: "eu-central-1"
-
-  # AZURE_CLIENT_ID:
-  #   description: 'Azure Client ID'
-  #   required: true
-  # AZURE_CLIENT_SECRET:
-  #   description: 'Azure Client Secret'
-  #   required: true
-  # TENANT_ID:
-  #   description: 'Azure Tenant ID'
-  #   required: true
-  # VAULT_URL:
-  #   description: 'Azure KeyVault URL'
-  #   required: true
-
 runs:
   using: composite
   steps:
@@ -45,13 +8,13 @@ runs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        role-to-assume: ${{ inputs.AWS_OIDC_ROLE_ARN }}
-        aws-region: ${{ inputs.AWS_REGION }}
+        role-to-assume: ${{ env.AWS_OIDC_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Setup Go
       uses: actions/setup-go@v3
       with:
-        go-version: "1.19"
+        go-version: "${{ env.GO_VERSION }}"
 
     - name: Find the Go Cache
       id: go
@@ -77,32 +40,22 @@ runs:
     - name: Setup kind
       uses: engineerd/setup-kind@v0.5.0
       with:
-        version: v0.14.0
+        version: ${{ env.KIND_VERSION }}
         wait: 10m
-        node_image: kindest/node:v1.24.2
+        node_image: ${{ env.KIND_IMAGE }}
         name: external-secrets
 
     - name: Setup Docker Buildx
       uses: docker/setup-buildx-action@v2
       with:
-        version: v0.4.2
+        version: ${{ env.DOCKER_BUILDX_VERSION }}
         install: true
 
     - name: Run e2e Tests
       shell: bash
       env:
         BUILD_ARGS: --load
-        # GCP_SM_SA_JSON: ${{ inputs.GCP_SM_SA_JSON }}
-        # GCP_GKE_ZONE: ${{ inputs.GCP_GKE_ZONE }}"
-        # GCP_GSA_NAME: ${{ inputs.GCP_GSA_NAME }}"
-        # GCP_KSA_NAME: ${{ inputs.GCP_KSA_NAME }}"
-        # GCP_PROJECT_ID: ${{ inputs.GCP_PROJECT_ID }}"
-        # AZURE_CLIENT_ID: ${{ inputs.AZURE_CLIENT_ID }}"
-        # AZURE_CLIENT_SECRET: ${{ inputs.AZURE_CLIENT_SECRET }}"
-        # TENANT_ID: ${{ inputs.TENANT_ID }}"
-        # VAULT_URL: ${{ inputs.VAULT_URL }}"
-        # AWS_REGION: ${{ inputs.AWS_REGION }}
       run: |
         export PATH=$PATH:$(go env GOPATH)/bin
-        go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.6
+        go install github.com/onsi/ginkgo/v2/ginkgo@${{ env.GINKGO_VERSION }}
         make test.e2e

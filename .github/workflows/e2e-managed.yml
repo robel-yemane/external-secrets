@@ -7,6 +7,48 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  # Common versions
+  GO_VERSION: '1.19'
+  GINKGO_VERSION: 'v2.1.6'
+  DOCKER_BUILDX_VERSION: 'v0.4.2'
+
+  # Common users. We can't run a step 'if secrets.GHCR_USERNAME != ""' but we can run
+  # a step 'if env.GHCR_USERNAME' != ""', so we copy these to succinctly test whether
+  # credentials have been provided before trying to run steps that need them.
+  GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+  GCP_SM_SA_JSON: ${{ secrets.GCP_SM_SA_JSON}}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID}}
+  TF_VAR_GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID}}
+  GCP_SM_SA_GKE_JSON: ${{ secrets.GCP_SM_SA_GKE_JSON}}
+  GCP_GKE_CLUSTER: test-cluster
+  GCP_GKE_ZONE: ${{ secrets.GCP_GKE_ZONE}}
+  GCP_GSA_NAME: ${{ secrets.GCP_GSA_NAME}} # Goolge Service Account
+  GCP_KSA_NAME: ${{ secrets.GCP_KSA_NAME}} # Kubernetes Service Account
+  TF_VAR_GCP_GSA_NAME: ${{ secrets.GCP_GSA_NAME}} # Goolge Service Account for tf
+  TF_VAR_GCP_KSA_NAME: ${{ secrets.GCP_KSA_NAME}} # Kubernetes Service Account for tf
+
+  AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN}}
+  AWS_SA_NAME: ${{ secrets.AWS_SA_NAME }}
+  AWS_SA_NAMESPACE: ${{ secrets.AWS_SA_NAMESPACE }}
+  AWS_REGION: "eu-central-1"
+  AWS_CLUSTER_NAME: "eso-e2e-managed"
+  TF_VAR_AWS_SA_NAME: ${{ secrets.AWS_SA_NAME }}
+  TF_VAR_AWS_SA_NAMESPACE: ${{ secrets.AWS_SA_NAMESPACE }}
+  TF_VAR_AWS_REGION: "eu-central-1"
+  TF_VAR_AWS_CLUSTER_NAME: "eso-e2e-managed"
+
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID}}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET}}
+  TENANT_ID: ${{ secrets.TENANT_ID}}
+  VAULT_URL: ${{ secrets.VAULT_URL}}
+
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_PR_NUMBER: ${{ github.event.client_payload.pull_request.number }}
+  CLOUD_PROVIDER: ${{ github.event.client_payload.slash_command.args.named.provider }}
+  INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+  GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+
 name: managed e2e tests
 
 jobs:
@@ -26,27 +68,6 @@ jobs:
       run: git fetch --prune --unshallow
 
     - uses: ./.github/actions/e2e-managed
-      with:
-        GCP_SM_SA_JSON: ${{ secrets.GCP_SM_SA_JSON}}
-        GCP_GKE_ZONE: ${{ secrets.GCP_GKE_ZONE}}
-        GCP_GSA_NAME: ${{ secrets.GCP_GSA_NAME}}
-        GCP_KSA_NAME: ${{ secrets.GCP_KSA_NAME}}
-        GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID}}
-        GCP_SM_SA_GKE_JSON: ${{ secrets.GCP_SM_SA_GKE_JSON}}
+      with: {}
 
-        AWS_SA_NAME: ${{ secrets.AWS_SA_NAME }}
-        AWS_SA_NAMESPACE: ${{ secrets.AWS_SA_NAMESPACE }}
-        AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN}}
-
-        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID}}
-        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET}}
-        TENANT_ID: ${{ secrets.TENANT_ID}}
-        VAULT_URL: ${{ secrets.VAULT_URL}}
-
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_PR_NUMBER: ${{ github.event.client_payload.pull_request.number }}
-        CLOUD_PROVIDER: ${{ github.event.client_payload.slash_command.args.named.provider }}
-        INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
-        GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-        GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
