@@ -11,6 +11,9 @@ spec:
       generator:
         apiVersion: generators.external-secrets.io/v1alpha1
         kind: Password
-        spec: {}
+        spec:
+          length: 24
+          symbols: 0
+          characters: 0
 
 

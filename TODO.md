@@ -3,6 +3,6 @@
     - [x] docs
     - [] implement defaulter (!!)
 - [x] unit tests for all generators
-- [ ] e2e test suite: fake + password gen
+- [x] e2e test suite: fake + password gen
 - [x] docs for CLI args
 - [x] docs for crd & cert controller

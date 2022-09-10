@@ -1,6 +1,3 @@
-provider "aws" {
-  region = local.region
-}
 
 locals {
   name            = var.cluster_name
