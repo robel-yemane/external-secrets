@@ -52,6 +52,7 @@ kubectl run --rm \
   --env="GCP_KSA_NAME=${GCP_KSA_NAME:-}" \
   --env="GCP_GKE_ZONE=${GCP_GKE_ZONE:-}" \
   --env="GCP_GKE_CLUSTER=${GCP_GKE_CLUSTER:-}" \
+  --env="AWS_REGION=${AWS_REGION:-}" \
   --env="AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}" \
   --env="AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}" \
   --env="AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}" \

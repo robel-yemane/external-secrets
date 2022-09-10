@@ -90,7 +90,7 @@ func NewFromEnv(f *framework.Framework) *Provider {
 	kid := os.Getenv("AWS_ACCESS_KEY_ID")
 	sak := os.Getenv("AWS_SECRET_ACCESS_KEY")
 	st := os.Getenv("AWS_SESSION_TOKEN")
-	region := "eu-west-1"
+	region := os.Getenv("AWS_REGION")
 	saName := os.Getenv("AWS_SA_NAME")
 	saNamespace := os.Getenv("AWS_SA_NAMESPACE")
 	return NewProvider(f, kid, sak, st, region, saName, saNamespace)

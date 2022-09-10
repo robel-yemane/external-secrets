@@ -6,40 +6,36 @@ runs:
   steps:
 
     # create new status check for this specific provider
-    - uses: actions/github-script@v6
-      if: ${{ always() }}
-      env:
-        number: ${{ env.GITHUB_PR_NUMBER }}
-        provider: ${{ env.CLOUD_PROVIDER }}
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-        script: |
-          const { data: pull } = await github.rest.pulls.get({
-            ...context.repo,
-            pull_number: process.env.number
-          });
-          const ref = pull.head.sha;
-          const { data: checks } = await github.rest.checks.listForRef({
-            ...context.repo,
-            ref
-          });
-          const job_name = "e2e-managed-" + process.env.provider
-          const check = checks.check_runs.filter(c => c.name === job_name);
-          if(check && check.length > 0){
-            const { data: result } = await github.rest.checks.update({
-              ...context.repo,
-              check_run_id: check[0].id,
-              status: 'in_progress',
-            });
-            return result;
-          }
-          const { data: result } = await github.rest.checks.create({
-            ...context.repo,
-            name: job_name,
-            head_sha: pull.head.sha,
-            status: 'in_progress',
-          });
-          return result;
+    # - uses: actions/github-script@v6
+    #   with:
+    #     github-token: ${{ env.GITHUB_TOKEN }}
+    #     script: |
+    #       const { data: pull } = await github.rest.pulls.get({
+    #         ...context.repo,
+    #         pull_number: process.env.GITHUB_PR_NUMBER
+    #       });
+    #       const ref = pull.head.sha;
+    #       const { data: checks } = await github.rest.checks.listForRef({
+    #         ...context.repo,
+    #         ref
+    #       });
+    #       const job_name = "e2e-managed-" + process.env.CLOUD_PROVIDER
+    #       const check = checks.check_runs.filter(c => c.name === job_name);
+    #       if(check && check.length > 0){
+    #         const { data: result } = await github.rest.checks.update({
+    #           ...context.repo,
+    #           check_run_id: check[0].id,
+    #           status: 'in_progress',
+    #         });
+    #         return result;
+    #       }
+    #       const { data: result } = await github.rest.checks.create({
+    #         ...context.repo,
+    #         name: job_name,
+    #         head_sha: pull.head.sha,
+    #         status: 'in_progress',
+    #       });
+    #       return result;
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -97,28 +93,6 @@ runs:
         PROVIDER=${{env.CLOUD_PROVIDER}}
         make tf.show.${PROVIDER}
 
-    - name: Setup Infracost
-      uses: infracost/actions/setup@v2
-      with:
-        api-key: ${{ env.INFRACOST_API_KEY }}
-
-    - name: Generate Infracost JSON for provider
-      shell: bash
-      run: |
-        infracost breakdown \
-          --path terraform/${{env.CLOUD_PROVIDER}}/plan.json \
-          --format json \
-          --out-file /tmp/infracost.json
-
-    - name: Post Infracost comment
-      shell: bash
-      run: |
-        infracost comment github --path=/tmp/infracost.json \
-          --repo=$GITHUB_REPOSITORY \
-          --github-token=${{ env.GITHUB_TOKEN }} \
-          --pull-request=${{ env.GITHUB_PR_NUMBER }} \
-          --behavior=update
-
     - name: Apply TF
       shell: bash
       env:
@@ -171,33 +145,3 @@ runs:
         PROVIDER=${{env.CLOUD_PROVIDER}}
         make tf.destroy.${PROVIDER}
 
-    # set status=completed
-    - uses: actions/github-script@v6
-      if: ${{ always() }}
-      env:
-        number: ${{ env.GITHUB_PR_NUMBER }}
-        provider: ${{ env.CLOUD_PROVIDER }}
-        job: ${{ github.job }}
-        # Conveniently, job.status maps to https://developer.github.com/v3/checks/runs/#update-a-check-run
-        conclusion: ${{ job.status }}
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-        script: |
-          const { data: pull } = await github.rest.pulls.get({
-            ...context.repo,
-            pull_number: process.env.number
-          });
-          const ref = pull.head.sha;
-          const { data: checks } = await github.rest.checks.listForRef({
-            ...context.repo,
-            ref
-          });
-          const job_name = "e2e-managed-" + process.env.provider
-          const check = checks.check_runs.filter(c => c.name === job_name);
-          const { data: result } = await github.rest.checks.update({
-            ...context.repo,
-            check_run_id: check[0].id,
-            status: 'completed',
-            conclusion: process.env.conclusion
-          });
-          return result;

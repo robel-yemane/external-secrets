@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 0.13"
 
   backend "s3" {
-    bucket = "es-tfstate-e2e-managed-tests"
+    bucket = "eso-tfstate-e2e-managed"
     key    = "aws-tfstate"
     region = "eu-central-1"
   }

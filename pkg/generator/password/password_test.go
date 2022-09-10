@@ -23,7 +23,7 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-func TestGenerator_Generate(t *testing.T) {
+func TestGenerate(t *testing.T) {
 	type args struct {
 		jsonSpec *apiextensions.JSON
 		passGen  generateFunc

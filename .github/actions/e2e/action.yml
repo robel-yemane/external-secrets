@@ -42,7 +42,7 @@ runs:
       with:
         version: ${{ env.KIND_VERSION }}
         wait: 10m
-        node_image: ${{ env.KIND_IMAGE }}
+        image: ${{ env.KIND_IMAGE }}
         name: external-secrets
 
     - name: Setup Docker Buildx

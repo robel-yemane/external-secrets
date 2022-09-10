@@ -47,7 +47,8 @@ var _ = Describe("ecr generator", Label("ecr"), func() {
 			},
 			Data: map[string][]byte{
 				"akid": []byte(os.Getenv("AWS_ACCESS_KEY_ID")),
-				"sak":  []byte(os.Getenv("AWS_SECRET_ACCES_KEY")),
+				"sak":  []byte(os.Getenv("AWS_SECRET_ACCESS_KEY")),
+				"st":   []byte(os.Getenv("AWS_SESSION_TOKEN")),
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -55,13 +56,14 @@ var _ = Describe("ecr generator", Label("ecr"), func() {
 		tc.Generator = &genv1alpha1.ECRAuthorizationToken{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: genv1alpha1.Group + "/" + genv1alpha1.Version,
-				Kind:       genv1alpha1.PasswordKind,
+				Kind:       genv1alpha1.ECRAuthorizationTokenKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      generatorName,
 				Namespace: f.Namespace.Name,
 			},
 			Spec: genv1alpha1.ECRAuthorizationTokenSpec{
+				Region: os.Getenv("AWS_REGION"),
 				Auth: esv1beta1.AWSAuth{
 					SecretRef: &esv1beta1.AWSAuthSecretRef{
 						AccessKeyID: esmeta.SecretKeySelector{
@@ -71,6 +73,10 @@ var _ = Describe("ecr generator", Label("ecr"), func() {
 						SecretAccessKey: esmeta.SecretKeySelector{
 							Name: awsCredsSecretName,
 							Key:  "sak",
+						},
+						SessionToken: &esmeta.SecretKeySelector{
+							Name: awsCredsSecretName,
+							Key:  "st",
 						},
 					},
 				},
@@ -92,8 +98,8 @@ var _ = Describe("ecr generator", Label("ecr"), func() {
 			},
 		}
 		tc.AfterSync = func(secret *v1.Secret) {
-			Expect(len(string(secret.Data["username"]))).To(Equal("AWS"))
-			Expect(len(string(secret.Data["password"]))).ToNot(BeEmpty())
+			Expect(string(secret.Data["username"])).To(Equal("AWS"))
+			Expect(string(secret.Data["password"])).ToNot(BeEmpty())
 		}
 	}
 
@@ -111,8 +117,8 @@ var _ = Describe("ecr generator", Label("ecr"), func() {
 			},
 		}
 		tc.AfterSync = func(secret *v1.Secret) {
-			Expect(len(string(secret.Data["username"]))).To(Equal("AWS"))
-			Expect(len(string(secret.Data["password"]))).ToNot(BeEmpty())
+			Expect(string(secret.Data["username"])).To(Equal("AWS"))
+			Expect(string(secret.Data["password"])).ToNot(BeEmpty())
 		}
 	}
 

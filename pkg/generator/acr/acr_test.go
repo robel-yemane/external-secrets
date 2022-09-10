@@ -16,6 +16,7 @@ package acr
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -31,7 +32,11 @@ import (
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestGenerator_Generate(t *testing.T) {
+func TestGenerate(t *testing.T) {
+	const (
+		testUsername = "11111111-2222-3333-4444-111111111111"
+		testURL      = "example.azurecr.io"
+	)
 	type args struct {
 		ctx                 context.Context
 		jsonSpec            *apiextensions.JSON
@@ -67,11 +72,11 @@ func TestGenerator_Generate(t *testing.T) {
 			name: "return acr access token if scope is defined",
 			args: args{
 				jsonSpec: &apiextensions.JSON{
-					Raw: []byte(`apiVersion: generators.external-secrets.io/v1alpha1
+					Raw: []byte(fmt.Sprintf(`apiVersion: generators.external-secrets.io/v1alpha1
 kind: ACRAccessToken
 spec:
-  tenantId: 11111111-2222-3333-4444-111111111111
-  registry: example.azurecr.io
+  tenantId: %s
+  registry: %s
   scope: "repository:foo:pull,push"
   environmentType: "PublicCloud"
   auth:
@@ -82,7 +87,7 @@ spec:
           key: clientsecret
         clientId:
           name: az-secret
-          key: clientid`),
+          key: clientid`, testUsername, testURL)),
 				},
 				crClient: clientfake.NewClientBuilder().WithObjects(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
@@ -98,15 +103,15 @@ spec:
 				ctx:       context.Background(),
 				accessTokenFetcher: func(acrRefreshToken, tenantID, registryURL, scope string) (string, error) {
 					assert.Equal(t, "acrrefreshtoken", acrRefreshToken)
-					assert.Equal(t, tenantID, "11111111-2222-3333-4444-111111111111")
-					assert.Equal(t, registryURL, "example.azurecr.io")
+					assert.Equal(t, tenantID, testUsername)
+					assert.Equal(t, registryURL, testURL)
 					assert.Equal(t, scope, "repository:foo:pull,push")
 					return "acraccesstoken", nil
 				},
 				refreshTokenFetcher: func(aadAccessToken, tenantID, registryURL string) (string, error) {
 					assert.Equal(t, "1234", aadAccessToken)
-					assert.Equal(t, tenantID, "11111111-2222-3333-4444-111111111111")
-					assert.Equal(t, registryURL, "example.azurecr.io")
+					assert.Equal(t, tenantID, testUsername)
+					assert.Equal(t, registryURL, testURL)
 					return "acrrefreshtoken", nil
 				},
 				clientSecretCreds: func(tenantID, clientID, clientSecret string, options *azidentity.ClientSecretCredentialOptions) (TokenGetter, error) {
@@ -126,11 +131,11 @@ spec:
 			name: "return acr refresh token if scope is not defined",
 			args: args{
 				jsonSpec: &apiextensions.JSON{
-					Raw: []byte(`apiVersion: generators.external-secrets.io/v1alpha1
+					Raw: []byte(fmt.Sprintf(`apiVersion: generators.external-secrets.io/v1alpha1
 kind: ACRAccessToken
 spec:
-  tenantId: 11111111-2222-3333-4444-111111111111
-  registry: example.azurecr.io
+  tenantId: %s
+  registry: %s
   environmentType: "PublicCloud"
   auth:
     servicePrincipal:
@@ -140,7 +145,7 @@ spec:
           key: clientsecret
         clientId:
           name: az-secret
-          key: clientid`),
+          key: clientid`, testUsername, testURL)),
 				},
 				crClient: clientfake.NewClientBuilder().WithObjects(&v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
@@ -160,8 +165,8 @@ spec:
 				},
 				refreshTokenFetcher: func(aadAccessToken, tenantID, registryURL string) (string, error) {
 					assert.Equal(t, "1234", aadAccessToken)
-					assert.Equal(t, tenantID, "11111111-2222-3333-4444-111111111111")
-					assert.Equal(t, registryURL, "example.azurecr.io")
+					assert.Equal(t, tenantID, testUsername)
+					assert.Equal(t, registryURL, testURL)
 					return "acrrefreshtoken", nil
 				},
 				clientSecretCreds: func(tenantID, clientID, clientSecret string, options *azidentity.ClientSecretCredentialOptions) (TokenGetter, error) {

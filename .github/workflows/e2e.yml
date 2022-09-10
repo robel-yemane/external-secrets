@@ -51,13 +51,11 @@ jobs:
       run: git fetch --prune --unshallow
 
     - uses: ./.github/actions/e2e
-      with: {}
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request
   integration-fork:
     runs-on: ubuntu-latest
-    if:
-      github.event_name == 'repository_dispatch'
+    if: github.event_name == 'repository_dispatch'
     steps:
 
     # Check out merge commit
@@ -70,7 +68,6 @@ jobs:
       run: git fetch --prune --unshallow
 
     - uses: ./.github/actions/e2e
-      with: {}
 
     # Update check run called "integration-fork"
     - uses: actions/github-script@v6

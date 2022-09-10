@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestGenerator_Generate(t *testing.T) {
+func TestGenerate(t *testing.T) {
 	type args struct {
 		ctx       context.Context
 		jsonSpec  *apiextensions.JSON

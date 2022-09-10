@@ -30,7 +30,7 @@ import (
 	"github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 )
 
-func TestGenerator_Generate(t *testing.T) {
+func TestGenerate(t *testing.T) {
 	type args struct {
 		ctx             context.Context
 		jsonSpec        *apiextensions.JSON
