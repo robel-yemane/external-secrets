@@ -1,15 +1,15 @@
 name: Dependency License Checks
 
 on:
-  # push:
-  #   branches:
-  #     - main
-  #     - release-*
-  #   paths:
-  #     - "go.mod"
-  # pull_request:
-  #   paths:
-  #     - "go.mod"
+  push:
+    branches:
+      - main
+      - release-*
+    paths:
+      - "go.mod"
+  pull_request:
+    paths:
+      - "go.mod"
   workflow_dispatch: {}
 env:
   # Common versions

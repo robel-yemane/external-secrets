@@ -21,7 +21,8 @@ import (
 	smmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 )
 
-// ACRAccessTokenSpec
+// ACRAccessTokenSpec defines how to generate the access token
+// e.g. how to authenticate and which registry to use.
 // see: https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#overview
 type ACRAccessTokenSpec struct {
 	Auth ACRAuth `json:"auth"`

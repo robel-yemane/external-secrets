@@ -59,7 +59,7 @@ spec:
                         description: ExternalSecretData defines the connection between the Kubernetes Secret key (spec.data.<key>) and the Provider data.
                         properties:
                           remoteRef:
-                            description: ExternalSecretDataRemoteRef defines Provider data location.
+                            description: RemoteRef points to the remote secret and defines which secret (version/property/..) to fetch.
                             properties:
                               conversionStrategy:
                                 default: Default
@@ -85,8 +85,11 @@ spec:
                               - key
                             type: object
                           secretKey:
+                            description: SecretKey defines the key in which the controller stores the value. This is the key in the Kind=Secret
                             type: string
                           sourceRef:
+                            description: SourceRef allows you to override the source from which the value will pulled from.
+                            maxProperties: 1
                             properties:
                               generator:
                                 description: Generator generates secret values on demand A generator is just a embedded type, see apis/generators for available types.
@@ -96,10 +99,13 @@ spec:
                                 properties:
                                   apiVersion:
                                     default: generators.external-secrets.io/v1alpha1
+                                    description: Specify the apiVersion of the generator resource
                                     type: string
                                   kind:
+                                    description: Specify the Kind of the resource, e.g. Password, ACRAccessToken etc.
                                     type: string
                                   name:
+                                    description: Specify the name of the generator resource
                                     type: string
                                 required:
                                   - kind
@@ -201,6 +207,7 @@ spec:
                             type: array
                           sourceRef:
                             description: SourceRef points to a store or generator which contains secret values ready to use. Use this in combination with Extract or Find pull values out of a specific SecretStore. When sourceRef points to a generator Extract or Find is not supported. The generator returns a static map of values
+                            maxProperties: 1
                             properties:
                               generator:
                                 description: Generator generates secret values on demand A generator is just a embedded type, see apis/generators for available types.
@@ -210,10 +217,13 @@ spec:
                                 properties:
                                   apiVersion:
                                     default: generators.external-secrets.io/v1alpha1
+                                    description: Specify the apiVersion of the generator resource
                                     type: string
                                   kind:
+                                    description: Specify the Kind of the resource, e.g. Password, ACRAccessToken etc.
                                     type: string
                                   name:
+                                    description: Specify the name of the generator resource
                                     type: string
                                 required:
                                   - kind
@@ -1776,7 +1786,7 @@ spec:
                                       type: string
                                   type: object
                                 sessionTokenSecretRef:
-                                  description: The SessionToken used for authentication
+                                  description: 'The SessionToken used for authentication This must be defined if AccessKeyID and SecretAccessKey are temporary credentials see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html'
                                   properties:
                                     key:
                                       description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
@@ -3052,7 +3062,7 @@ spec:
                     description: ExternalSecretData defines the connection between the Kubernetes Secret key (spec.data.<key>) and the Provider data.
                     properties:
                       remoteRef:
-                        description: ExternalSecretDataRemoteRef defines Provider data location.
+                        description: RemoteRef points to the remote secret and defines which secret (version/property/..) to fetch.
                         properties:
                           conversionStrategy:
                             default: Default
@@ -3078,8 +3088,11 @@ spec:
                           - key
                         type: object
                       secretKey:
+                        description: SecretKey defines the key in which the controller stores the value. This is the key in the Kind=Secret
                         type: string
                       sourceRef:
+                        description: SourceRef allows you to override the source from which the value will pulled from.
+                        maxProperties: 1
                         properties:
                           generator:
                             description: Generator generates secret values on demand A generator is just a embedded type, see apis/generators for available types.
@@ -3089,10 +3102,13 @@ spec:
                             properties:
                               apiVersion:
                                 default: generators.external-secrets.io/v1alpha1
+                                description: Specify the apiVersion of the generator resource
                                 type: string
                               kind:
+                                description: Specify the Kind of the resource, e.g. Password, ACRAccessToken etc.
                                 type: string
                               name:
+                                description: Specify the name of the generator resource
                                 type: string
                             required:
                               - kind
@@ -3194,6 +3210,7 @@ spec:
                         type: array
                       sourceRef:
                         description: SourceRef points to a store or generator which contains secret values ready to use. Use this in combination with Extract or Find pull values out of a specific SecretStore. When sourceRef points to a generator Extract or Find is not supported. The generator returns a static map of values
+                        maxProperties: 1
                         properties:
                           generator:
                             description: Generator generates secret values on demand A generator is just a embedded type, see apis/generators for available types.
@@ -3203,10 +3220,13 @@ spec:
                             properties:
                               apiVersion:
                                 default: generators.external-secrets.io/v1alpha1
+                                description: Specify the apiVersion of the generator resource
                                 type: string
                               kind:
+                                description: Specify the Kind of the resource, e.g. Password, ACRAccessToken etc.
                                 type: string
                               name:
+                                description: Specify the name of the generator resource
                                 type: string
                             required:
                               - kind
@@ -4723,7 +4743,7 @@ spec:
                                       type: string
                                   type: object
                                 sessionTokenSecretRef:
-                                  description: The SessionToken used for authentication
+                                  description: 'The SessionToken used for authentication This must be defined if AccessKeyID and SecretAccessKey are temporary credentials see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html'
                                   properties:
                                     key:
                                       description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
@@ -5762,7 +5782,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: 'ACRAccessTokenSpec see: https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#overview'
+              description: 'ACRAccessTokenSpec defines how to generate the access token e.g. how to authenticate and which registry to use. see: https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#overview'
               properties:
                 auth:
                   properties:
@@ -5892,6 +5912,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
+          description: ECRAuthorizationTokenSpec uses the GetAuthorizationToken API to retrieve an authorization token. The authorization token is valid for 12 hours. The authorizationToken returned is a base64 encoded string that can be decoded and used in a docker login command to authenticate to a registry. For more information, see Registry authentication (https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html#registry_auth) in the Amazon Elastic Container Registry User Guide.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -5902,10 +5923,9 @@ spec:
             metadata:
               type: object
             spec:
-              description: ECRAuthorizationTokenSpec uses the GetAuthorizationToken API to retrieve an authorization token. The authorization token is valid for 12 hours. The authorizationToken returned is a base64 encoded string that can be decoded and used in a docker login command to authenticate to a registry. For more information, see Registry authentication (https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html#registry_auth) in the Amazon Elastic Container Registry User Guide.
               properties:
                 auth:
-                  description: AWSAuth tells the controller how to do authentication with aws. Only one of secretRef or jwt can be specified. if none is specified the controller will load credentials using the aws sdk defaults.
+                  description: Auth defines how to authenticate with AWS
                   properties:
                     jwt:
                       description: Authenticate against AWS using service account tokens.
@@ -5958,7 +5978,7 @@ spec:
                               type: string
                           type: object
                         sessionTokenSecretRef:
-                          description: The SessionToken used for authentication
+                          description: 'The SessionToken used for authentication This must be defined if AccessKeyID and SecretAccessKey are temporary credentials see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html'
                           properties:
                             key:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
@@ -5973,8 +5993,10 @@ spec:
                       type: object
                   type: object
                 region:
+                  description: Region specifies the region to operate in.
                   type: string
                 role:
+                  description: You can assume a role before making calls to the desired AWS service.
                   type: string
               required:
                 - region
@@ -6018,6 +6040,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
+          description: Fake generator is used for testing. It lets you define a static set of credentials that is always returned.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -6033,6 +6056,7 @@ spec:
                 data:
                   additionalProperties:
                     type: string
+                  description: Data defines the static data returned by this generator.
                   type: object
               type: object
           type: object
@@ -6074,6 +6098,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
+          description: GCRAccessToken generates an GCP access token that can be used to authenticate with GCR.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -6084,9 +6109,9 @@ spec:
             metadata:
               type: object
             spec:
-              description: GCRAccessTokenSpec contains the means for authenticating with GCP.
               properties:
                 auth:
+                  description: Auth defines the means for authenticating with GCP
                   properties:
                     secretRef:
                       properties:
@@ -6136,6 +6161,7 @@ spec:
                       type: object
                   type: object
                 projectID:
+                  description: ProjectID defines which project to use to authenticate with
                   type: string
               required:
                 - auth
@@ -6180,6 +6206,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
+          description: Password generates a random password based on the configuration parameters in spec. You can specify the length, characterset and other attributes.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'

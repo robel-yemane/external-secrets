@@ -157,10 +157,16 @@ type ExternalSecretTarget struct {
 
 // ExternalSecretData defines the connection between the Kubernetes Secret key (spec.data.<key>) and the Provider data.
 type ExternalSecretData struct {
+	// SecretKey defines the key in which the controller stores
+	// the value. This is the key in the Kind=Secret
 	SecretKey string `json:"secretKey"`
 
+	// RemoteRef points to the remote secret and defines
+	// which secret (version/property/..) to fetch.
 	RemoteRef ExternalSecretDataRemoteRef `json:"remoteRef"`
 
+	// SourceRef allows you to override the source
+	// from which the value will pulled from.
 	SourceRef *SourceRef `json:"sourceRef,omitempty"`
 }
 
@@ -305,6 +311,10 @@ type ExternalSecretSpec struct {
 	DataFrom []ExternalSecretDataFromRemoteRef `json:"dataFrom,omitempty"`
 }
 
+// SourceRef allows you to override the source
+// from which the secret will be pulled from.
+// You can define at maximum one property.
+// +kubebuilder:validation:MaxProperties=1
 type SourceRef struct {
 	// +optional
 	SecretStoreRef *SecretStoreRef `json:"storeRef,omitempty"`
@@ -320,11 +330,15 @@ type SourceRef struct {
 	Generator *apiextensions.JSON `json:"generator,omitempty"`
 }
 
+// GeneratorRef points to a generator custom resource
 type GeneratorRef struct {
+	// Specify the apiVersion of the generator resource
 	// +kubebuilder:default="generators.external-secrets.io/v1alpha1"
 	APIVersion string `json:"apiVersion,omitempty"`
-	Kind       string `json:"kind"`
-	Name       string `json:"name"`
+	// Specify the Kind of the resource, e.g. Password, ACRAccessToken etc.
+	Kind string `json:"kind"`
+	// Specify the name of the generator resource
+	Name string `json:"name"`
 }
 
 type ExternalSecretConditionType string

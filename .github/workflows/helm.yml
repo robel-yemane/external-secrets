@@ -1,15 +1,15 @@
 name: Helm
 
 on:
-  # push:
-  #   branches:
-  #     - main
-  #     - release-*
-  #   paths:
-  #     - 'deploy/charts/**'
-  # pull_request:
-  #   paths:
-  #     - 'deploy/charts/**'
+  push:
+    branches:
+      - main
+      - release-*
+    paths:
+      - 'deploy/charts/**'
+  pull_request:
+    paths:
+      - 'deploy/charts/**'
   workflow_dispatch: {}
 
 jobs:

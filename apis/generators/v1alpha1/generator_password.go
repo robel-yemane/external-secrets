@@ -46,6 +46,9 @@ type PasswordSpec struct {
 	AllowRepeat bool `json:"allowRepeat"`
 }
 
+// Password generates a random password based on the
+// configuration parameters in spec.
+// You can specify the length, characterset and other attributes.
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status

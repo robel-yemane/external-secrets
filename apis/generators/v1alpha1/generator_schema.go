@@ -31,7 +31,7 @@ func init() {
 }
 
 // Register a generator type. Register panics if a
-// backend with the same store is already registered.
+// backend with the same generator is already registered.
 func Register(kind string, g Generator) {
 	buildlock.Lock()
 	defer buildlock.Unlock()
@@ -43,7 +43,7 @@ func Register(kind string, g Generator) {
 	builder[kind] = g
 }
 
-// ForceRegister adds to store schema, overwriting a store if
+// ForceRegister adds to the schema, overwriting a generator if
 // already registered. Should only be used for testing.
 func ForceRegister(kind string, g Generator) {
 	buildlock.Lock()
@@ -59,7 +59,8 @@ func GetGeneratorByName(kind string) (Generator, bool) {
 	return f, ok
 }
 
-// GetGenerator returns the provider from the generic store.
+// GetGenerator returns a implementation from a generator
+// defined as json.
 func GetGenerator(obj *apiextensions.JSON) (Generator, error) {
 	type unknownGenerator struct {
 		metav1.TypeMeta   `json:",inline"`

@@ -6,36 +6,36 @@ runs:
   steps:
 
     # create new status check for this specific provider
-    # - uses: actions/github-script@v6
-    #   with:
-    #     github-token: ${{ env.GITHUB_TOKEN }}
-    #     script: |
-    #       const { data: pull } = await github.rest.pulls.get({
-    #         ...context.repo,
-    #         pull_number: process.env.GITHUB_PR_NUMBER
-    #       });
-    #       const ref = pull.head.sha;
-    #       const { data: checks } = await github.rest.checks.listForRef({
-    #         ...context.repo,
-    #         ref
-    #       });
-    #       const job_name = "e2e-managed-" + process.env.CLOUD_PROVIDER
-    #       const check = checks.check_runs.filter(c => c.name === job_name);
-    #       if(check && check.length > 0){
-    #         const { data: result } = await github.rest.checks.update({
-    #           ...context.repo,
-    #           check_run_id: check[0].id,
-    #           status: 'in_progress',
-    #         });
-    #         return result;
-    #       }
-    #       const { data: result } = await github.rest.checks.create({
-    #         ...context.repo,
-    #         name: job_name,
-    #         head_sha: pull.head.sha,
-    #         status: 'in_progress',
-    #       });
-    #       return result;
+    - uses: actions/github-script@v6
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+        script: |
+          const { data: pull } = await github.rest.pulls.get({
+            ...context.repo,
+            pull_number: process.env.GITHUB_PR_NUMBER
+          });
+          const ref = pull.head.sha;
+          const { data: checks } = await github.rest.checks.listForRef({
+            ...context.repo,
+            ref
+          });
+          const job_name = "e2e-managed-" + process.env.CLOUD_PROVIDER
+          const check = checks.check_runs.filter(c => c.name === job_name);
+          if(check && check.length > 0){
+            const { data: result } = await github.rest.checks.update({
+              ...context.repo,
+              check_run_id: check[0].id,
+              status: 'in_progress',
+            });
+            return result;
+          }
+          const { data: result } = await github.rest.checks.create({
+            ...context.repo,
+            name: job_name,
+            head_sha: pull.head.sha,
+            status: 'in_progress',
+          });
+          return result;
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1

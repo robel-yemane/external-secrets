@@ -38,6 +38,8 @@ type AWSAuthSecretRef struct {
 	SecretAccessKey esmeta.SecretKeySelector `json:"secretAccessKeySecretRef,omitempty"`
 
 	// The SessionToken used for authentication
+	// This must be defined if AccessKeyID and SecretAccessKey are temporary credentials
+	// see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html
 	// +Optional
 	SessionToken *esmeta.SecretKeySelector `json:"sessionTokenSecretRef,omitempty"`
 }

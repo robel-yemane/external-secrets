@@ -20,12 +20,15 @@ import (
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 )
 
-// GCRAccessTokenSpec contains the means for authenticating with GCP.
 type GCRAccessTokenSpec struct {
-	Auth      esv1beta1.GCPSMAuth `json:"auth"`
-	ProjectID string              `json:"projectID"`
+	// Auth defines the means for authenticating with GCP
+	Auth esv1beta1.GCPSMAuth `json:"auth"`
+	// ProjectID defines which project to use to authenticate with
+	ProjectID string `json:"projectID"`
 }
 
+// GCRAccessToken generates an GCP access token
+// that can be used to authenticate with GCR.
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status

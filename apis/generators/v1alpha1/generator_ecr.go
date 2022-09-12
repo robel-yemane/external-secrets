@@ -20,20 +20,26 @@ import (
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 )
 
+type ECRAuthorizationTokenSpec struct {
+	// Region specifies the region to operate in.
+	Region string `json:"region"`
+
+	// Auth defines how to authenticate with AWS
+	// +optional
+	Auth esv1beta1.AWSAuth `json:"auth"`
+
+	// You can assume a role before making calls to the
+	// desired AWS service.
+	// +optional
+	Role string `json:"role"`
+}
+
 // ECRAuthorizationTokenSpec uses the GetAuthorizationToken API to retrieve an
 // authorization token.
 // The authorization token is valid for 12 hours.
 // The authorizationToken returned is a base64 encoded string that can be decoded
 // and used in a docker login command to authenticate to a registry.
 // For more information, see Registry authentication (https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html#registry_auth) in the Amazon Elastic Container Registry User Guide.
-type ECRAuthorizationTokenSpec struct {
-	// +optional
-	Auth esv1beta1.AWSAuth `json:"auth"`
-	// +optional
-	Role   string `json:"role"`
-	Region string `json:"region"`
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status

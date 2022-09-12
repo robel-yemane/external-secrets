@@ -20,9 +20,13 @@ import (
 
 // FakeSpec contains the static data.
 type FakeSpec struct {
+	// Data defines the static data returned
+	// by this generator.
 	Data map[string]string `json:"data,omitempty"`
 }
 
+// Fake generator is used for testing. It lets you define
+// a static set of credentials that is always returned.
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
