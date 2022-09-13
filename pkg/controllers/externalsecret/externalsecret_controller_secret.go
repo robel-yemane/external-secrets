@@ -31,7 +31,6 @@ import (
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	genv1alpha1 "github.com/external-secrets/external-secrets/apis/generators/v1alpha1"
 	"github.com/external-secrets/external-secrets/pkg/controllers/secretstore"
-
 	// Loading registered generators.
 	_ "github.com/external-secrets/external-secrets/pkg/generator/register"
 	// Loading registered providers.

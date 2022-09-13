@@ -330,7 +330,7 @@ type SourceRef struct {
 	Generator *apiextensions.JSON `json:"generator,omitempty"`
 }
 
-// GeneratorRef points to a generator custom resource
+// GeneratorRef points to a generator custom resource.
 type GeneratorRef struct {
 	// Specify the apiVersion of the generator resource
 	// +kubebuilder:default="generators.external-secrets.io/v1alpha1"
