@@ -46,38 +46,35 @@ import (
 )
 
 const (
-	requeueAfter             = time.Second * 30
-	fieldOwnerTemplate       = "externalsecrets.external-secrets.io/%v"
-	errGetES                 = "could not get ExternalSecret"
-	errConvert               = "could not apply conversion strategy to keys: %v"
-	errDecode                = "could not apply decoding strategy to %v[%d]: %v"
-	errGenerate              = "could not generate [%d]: %w"
-	errRewrite               = "could not rewrite spec.dataFrom[%d]: %v"
-	errInvalidKeys           = "secret keys from spec.dataFrom.%v[%d] can only have alphanumeric,'-', '_' or '.' characters. Convert them using rewrite (https://external-secrets.io/latest/guides-datafrom-rewrite)"
-	errUpdateSecret          = "could not update Secret"
-	errPatchStatus           = "unable to patch status"
-	errGetSecretStore        = "could not get SecretStore %q, %w"
-	errSecretStoreNotReady   = "the desired SecretStore %s is not ready"
-	errGetClusterSecretStore = "could not get ClusterSecretStore %q, %w"
-	errStoreRef              = "could not get store reference"
-	errStoreUsability        = "could not use store reference"
-	errStoreProvider         = "could not get store provider"
-	errStoreClient           = "could not get provider client"
-	errGetExistingSecret     = "could not get existing secret: %w"
-	errCloseStoreClient      = "could not close provider client"
-	errSetCtrlReference      = "could not set ExternalSecret controller reference: %w"
-	errFetchTplFrom          = "error fetching templateFrom data: %w"
-	errGetSecretData         = "could not get secret data from provider"
-	errDeleteSecret          = "could not delete secret"
-	errApplyTemplate         = "could not apply template: %w"
-	errExecTpl               = "could not execute template: %w"
-	errInvalidCreatePolicy   = "invalid creationPolicy=%s. Can not delete secret i do not own"
-	errPolicyMergeNotFound   = "the desired secret %s was not found. With creationPolicy=Merge the secret won't be created"
-	errPolicyMergeGetSecret  = "unable to get secret %s: %w"
-	errPolicyMergeMutate     = "unable to mutate secret %s: %w"
-	errPolicyMergePatch      = "unable to patch secret %s: %w"
-	errTplCMMissingKey       = "error in configmap %s: missing key %s"
-	errTplSecMissingKey      = "error in secret %s: missing key %s"
+	requeueAfter            = time.Second * 30
+	fieldOwnerTemplate      = "externalsecrets.external-secrets.io/%v"
+	errGetES                = "could not get ExternalSecret"
+	errConvert              = "could not apply conversion strategy to keys: %v"
+	errDecode               = "could not apply decoding strategy to %v[%d]: %v"
+	errGenerate             = "could not generate [%d]: %w"
+	errRewrite              = "could not rewrite spec.dataFrom[%d]: %v"
+	errInvalidKeys          = "secret keys from spec.dataFrom.%v[%d] can only have alphanumeric,'-', '_' or '.' characters. Convert them using rewrite (https://external-secrets.io/latest/guides-datafrom-rewrite)"
+	errUpdateSecret         = "could not update Secret"
+	errPatchStatus          = "unable to patch status"
+	errStoreRef             = "could not get store reference"
+	errStoreUsability       = "could not use store reference"
+	errStoreProvider        = "could not get store provider"
+	errStoreClient          = "could not get provider client"
+	errGetExistingSecret    = "could not get existing secret: %w"
+	errCloseStoreClient     = "could not close provider client"
+	errSetCtrlReference     = "could not set ExternalSecret controller reference: %w"
+	errFetchTplFrom         = "error fetching templateFrom data: %w"
+	errGetSecretData        = "could not get secret data from provider"
+	errDeleteSecret         = "could not delete secret"
+	errApplyTemplate        = "could not apply template: %w"
+	errExecTpl              = "could not execute template: %w"
+	errInvalidCreatePolicy  = "invalid creationPolicy=%s. Can not delete secret i do not own"
+	errPolicyMergeNotFound  = "the desired secret %s was not found. With creationPolicy=Merge the secret won't be created"
+	errPolicyMergeGetSecret = "unable to get secret %s: %w"
+	errPolicyMergeMutate    = "unable to mutate secret %s: %w"
+	errPolicyMergePatch     = "unable to patch secret %s: %w"
+	errTplCMMissingKey      = "error in configmap %s: missing key %s"
+	errTplSecMissingKey     = "error in secret %s: missing key %s"
 )
 
 // Reconciler reconciles a ExternalSecret object.
@@ -129,6 +126,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if shouldSkipClusterSecretStore(r, externalSecret) {
 		log.Info("skipping cluster secret store as it is disabled")
+		return ctrl.Result{}, nil
+	}
+
+	// skip when pointing to an unmanaged store
+	skip, err := shouldSkipUnmanagedStore(ctx, req.Namespace, r, externalSecret)
+	if skip {
+		log.Info("skipping unmanaged store as it points to a unmanaged controllerClass")
 		return ctrl.Result{}, nil
 	}
 
@@ -392,6 +396,54 @@ func hashMeta(m metav1.ObjectMeta) string {
 
 func shouldSkipClusterSecretStore(r *Reconciler, es esv1beta1.ExternalSecret) bool {
 	return !r.ClusterSecretStoreEnabled && es.Spec.SecretStoreRef.Kind == esv1beta1.ClusterSecretStoreKind
+}
+
+// shouldSkipUnmanagedStore iterates over all secretStore references in the externalSecret spec,
+// fetches the store and evaluates the controllerClass property.
+// Returns true if any storeRef points to store with a non-matching controllerClass.
+func shouldSkipUnmanagedStore(ctx context.Context, namespace string, r *Reconciler, es esv1beta1.ExternalSecret) (bool, error) {
+	var storeList []esv1beta1.SecretStoreRef
+
+	if es.Spec.SecretStoreRef.Name != "" {
+		storeList = append(storeList, es.Spec.SecretStoreRef)
+	}
+
+	for _, ref := range es.Spec.Data {
+		if ref.SourceRef != nil && ref.SourceRef.SecretStoreRef != nil {
+			storeList = append(storeList, *ref.SourceRef.SecretStoreRef)
+		}
+	}
+
+	for _, ref := range es.Spec.DataFrom {
+		if ref.SourceRef != nil && ref.SourceRef.SecretStoreRef != nil {
+			storeList = append(storeList, *ref.SourceRef.SecretStoreRef)
+		}
+	}
+
+	for _, ref := range storeList {
+		var store esv1beta1.GenericStore
+
+		switch ref.Kind {
+		case esv1beta1.SecretStoreKind, "":
+			store = &esv1beta1.SecretStore{}
+		case esv1beta1.ClusterSecretStoreKind:
+			store = &esv1beta1.ClusterSecretStore{}
+			namespace = ""
+		}
+
+		err := r.Client.Get(ctx, types.NamespacedName{
+			Name:      ref.Name,
+			Namespace: namespace,
+		}, store)
+		if err != nil {
+			return false, err
+		}
+		class := store.GetSpec().Controller
+		if class != "" && class != r.ControllerClass {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func shouldRefresh(es esv1beta1.ExternalSecret) bool {

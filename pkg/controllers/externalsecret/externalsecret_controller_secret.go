@@ -23,14 +23,13 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	genv1alpha1 "github.com/external-secrets/external-secrets/apis/generators/v1alpha1"
-	"github.com/external-secrets/external-secrets/pkg/controllers/secretstore"
+	"github.com/external-secrets/external-secrets/pkg/controllers/externalsecret/clientmanager"
 	// Loading registered generators.
 	_ "github.com/external-secrets/external-secrets/pkg/generator/register"
 	// Loading registered providers.
@@ -40,15 +39,22 @@ import (
 
 // getProviderSecretData returns the provider's secret data with the provided ExternalSecret.
 func (r *Reconciler) getProviderSecretData(ctx context.Context, externalSecret *esv1beta1.ExternalSecret) (map[string][]byte, error) {
+	// We MUST NOT create multiple instances of a provider client (mostly due to limitations with GCP)
+	// Clientmanager keeps track of the client instances
+	// that are created during the fetching process and closes clients
+	// if needed.
+	mgr := clientmanager.New(r.Client, r.ControllerClass, r.EnableFloodGate)
+	defer mgr.Close(ctx)
+
 	providerData := make(map[string][]byte)
 	for i, remoteRef := range externalSecret.Spec.DataFrom {
 		var secretMap map[string][]byte
 		var err error
 
 		if remoteRef.Find != nil {
-			secretMap, err = r.handleFindAllSecrets(ctx, externalSecret, remoteRef, i)
+			secretMap, err = r.handleFindAllSecrets(ctx, externalSecret, remoteRef, mgr, i)
 		} else if remoteRef.Extract != nil {
-			secretMap, err = r.handleExtractSecrets(ctx, externalSecret, remoteRef, i)
+			secretMap, err = r.handleExtractSecrets(ctx, externalSecret, remoteRef, mgr, i)
 		} else if remoteRef.SourceRef != nil && (remoteRef.SourceRef.Generator != nil || remoteRef.SourceRef.GeneratorRef != nil) {
 			secretMap, err = r.handleGenerateSecrets(ctx, externalSecret.Namespace, remoteRef, i)
 		}
@@ -68,7 +74,7 @@ func (r *Reconciler) getProviderSecretData(ctx context.Context, externalSecret *
 	}
 
 	for i, secretRef := range externalSecret.Spec.Data {
-		err := r.handleSecretData(ctx, i, *externalSecret, secretRef, providerData)
+		err := r.handleSecretData(ctx, i, *externalSecret, secretRef, providerData, mgr)
 		if errors.Is(err, esv1beta1.NoSecretErr) && externalSecret.Spec.Target.DeletionPolicy != esv1beta1.DeletionPolicyRetain {
 			r.recorder.Event(externalSecret, v1.EventTypeNormal, esv1beta1.ReasonDeleted, fmt.Sprintf("secret does not exist at provider using .data[%d] key=%s", i, secretRef.RemoteRef.Key))
 			continue
@@ -81,12 +87,11 @@ func (r *Reconciler) getProviderSecretData(ctx context.Context, externalSecret *
 	return providerData, nil
 }
 
-func (r *Reconciler) handleSecretData(ctx context.Context, i int, externalSecret esv1beta1.ExternalSecret, secretRef esv1beta1.ExternalSecretData, providerData map[string][]byte) error {
-	client, err := r.getClientOrDefault(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, secretRef.SourceRef)
+func (r *Reconciler) handleSecretData(ctx context.Context, i int, externalSecret esv1beta1.ExternalSecret, secretRef esv1beta1.ExternalSecretData, providerData map[string][]byte, cmgr *clientmanager.Manager) error {
+	client, err := cmgr.Get(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, secretRef.SourceRef)
 	if err != nil {
 		return err
 	}
-	defer client.Close(ctx)
 	secretData, err := client.GetSecret(ctx, secretRef.RemoteRef)
 	if err != nil {
 		return err
@@ -169,12 +174,11 @@ func (r *Reconciler) getGeneratorDefinition(ctx context.Context, namespace strin
 	return &apiextensions.JSON{Raw: jsonRes}, nil
 }
 
-func (r *Reconciler) handleExtractSecrets(ctx context.Context, externalSecret *esv1beta1.ExternalSecret, remoteRef esv1beta1.ExternalSecretDataFromRemoteRef, i int) (map[string][]byte, error) {
-	client, err := r.getClientOrDefault(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, remoteRef.SourceRef)
+func (r *Reconciler) handleExtractSecrets(ctx context.Context, externalSecret *esv1beta1.ExternalSecret, remoteRef esv1beta1.ExternalSecretDataFromRemoteRef, cmgr *clientmanager.Manager, i int) (map[string][]byte, error) {
+	client, err := cmgr.Get(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, remoteRef.SourceRef)
 	if err != nil {
 		return nil, err
 	}
-	defer client.Close(ctx)
 	secretMap, err := client.GetSecretMap(ctx, *remoteRef.Extract)
 	if err != nil {
 		return nil, err
@@ -199,12 +203,11 @@ func (r *Reconciler) handleExtractSecrets(ctx context.Context, externalSecret *e
 	return secretMap, err
 }
 
-func (r *Reconciler) handleFindAllSecrets(ctx context.Context, externalSecret *esv1beta1.ExternalSecret, remoteRef esv1beta1.ExternalSecretDataFromRemoteRef, i int) (map[string][]byte, error) {
-	client, err := r.getClientOrDefault(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, remoteRef.SourceRef)
+func (r *Reconciler) handleFindAllSecrets(ctx context.Context, externalSecret *esv1beta1.ExternalSecret, remoteRef esv1beta1.ExternalSecretDataFromRemoteRef, cmgr *clientmanager.Manager, i int) (map[string][]byte, error) {
+	client, err := cmgr.Get(ctx, externalSecret.Spec.SecretStoreRef, externalSecret.Namespace, remoteRef.SourceRef)
 	if err != nil {
 		return nil, err
 	}
-	defer client.Close(ctx)
 	secretMap, err := client.GetAllSecrets(ctx, *remoteRef.Find)
 	if err != nil {
 		return nil, err
@@ -229,78 +232,4 @@ func (r *Reconciler) handleFindAllSecrets(ctx context.Context, externalSecret *e
 		return nil, fmt.Errorf(errDecode, "spec.dataFrom", i, err)
 	}
 	return secretMap, err
-}
-
-// getClientOrDefault returns a provider client from the given storeRef or sourceRef.secretStoreRef
-// while sourceRef.SecretStoreRef takes precedence over storeRef.
-// it returns nil if both storeRef and sourceRef.secretStoreRef is empty.
-func (r *Reconciler) getClientOrDefault(ctx context.Context, storeRef esv1beta1.SecretStoreRef, namespace string, sourceRef *esv1beta1.SourceRef) (esv1beta1.SecretsClient, error) {
-	if sourceRef != nil && sourceRef.SecretStoreRef != nil {
-		storeRef = *sourceRef.SecretStoreRef
-	}
-
-	store, err := r.getStore(ctx, &storeRef, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	// check if store should be handled by this controller instance
-	if !secretstore.ShouldProcessStore(store, r.ControllerClass) {
-		return nil, fmt.Errorf("can not reference unmanaged store")
-	}
-
-	if r.EnableFloodGate {
-		err := assertStoreIsUsable(store)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	storeProvider, err := esv1beta1.GetProvider(store)
-	if err != nil {
-		return nil, err
-	}
-
-	// secret client is created only if we are going to refresh
-	// this skip an unnecessary check/request in the case we are not going to do anything
-	providerClient, err := storeProvider.NewClient(ctx, store, r.Client, namespace)
-	if err != nil {
-		return nil, err
-	}
-	return providerClient, nil
-}
-
-// assertStoreIsUsable assert that the store is ready to use.
-func assertStoreIsUsable(store esv1beta1.GenericStore) error {
-	if store == nil {
-		return nil
-	}
-	condition := secretstore.GetSecretStoreCondition(store.GetStatus(), esv1beta1.SecretStoreReady)
-	if condition == nil || condition.Status != v1.ConditionTrue {
-		return fmt.Errorf(errSecretStoreNotReady, store.GetName())
-	}
-	return nil
-}
-
-func (r *Reconciler) getStore(ctx context.Context, storeRef *esv1beta1.SecretStoreRef, namespace string) (esv1beta1.GenericStore, error) {
-	ref := types.NamespacedName{
-		Name: storeRef.Name,
-	}
-
-	if storeRef.Kind == esv1beta1.ClusterSecretStoreKind {
-		var store esv1beta1.ClusterSecretStore
-		err := r.Get(ctx, ref, &store)
-		if err != nil {
-			return nil, fmt.Errorf(errGetClusterSecretStore, ref.Name, err)
-		}
-		return &store, nil
-	}
-
-	ref.Namespace = namespace
-	var store esv1beta1.SecretStore
-	err := r.Get(ctx, ref, &store)
-	if err != nil {
-		return nil, fmt.Errorf(errGetSecretStore, ref.Name, err)
-	}
-	return &store, nil
 }

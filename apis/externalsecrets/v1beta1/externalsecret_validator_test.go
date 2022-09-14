@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func Test_validateExternalSecret(t *testing.T) {
+func TestValidateExternalSecret(t *testing.T) {
 	tests := []struct {
 		name    string
 		obj     runtime.Object
